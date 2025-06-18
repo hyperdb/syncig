@@ -12,8 +12,9 @@ import (
 )
 
 type Config struct {
-	SRC_DIR  string `json:"SRC_DIR"`
-	DIST_DIR string `json:"DIST_DIR"`
+	SRC_DIR      string   `json:"SRC_DIR"`
+	DIST_DIR     string   `json:"DIST_DIR"`
+	EXCLUDED_EXT []string `json:"EXCLUDED_EXT"`
 }
 
 func loadConfig(path string) (*Config, error) {
@@ -27,6 +28,17 @@ func loadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+// 指定拡張子が除外対象か判定
+func isExcluded(ext string, excludes []string) bool {
+	ext = strings.ToLower(ext)
+	for _, e := range excludes {
+		if strings.ToLower(e) == ext {
+			return true
+		}
+	}
+	return false
 }
 
 func ensureDir(path string) error {
@@ -65,7 +77,7 @@ func copyFile(srcFile, distFile string) error {
 	return err
 }
 
-func syncDir(srcRoot, distRoot string) error {
+func syncDir(srcRoot, distRoot string, excludedExt []string) error {
 	// サブディレクトリごとに処理
 	return filepath.WalkDir(srcRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -85,6 +97,18 @@ func syncDir(srcRoot, distRoot string) error {
 		var files []string
 		for _, entry := range entries {
 			if entry.Type().IsRegular() {
+				ext := filepath.Ext(entry.Name())
+				if isExcluded(ext, excludedExt) {
+					continue
+				}
+				// ファイルサイズ0判定
+				info, err := entry.Info()
+				if err != nil {
+					continue
+				}
+				if info.Size() == 0 {
+					continue
+				}
 				files = append(files, entry.Name())
 			}
 		}
@@ -133,7 +157,7 @@ func main() {
 	}
 	srcDir := strings.TrimRight(cfg.SRC_DIR, string(os.PathSeparator))
 	distDir := strings.TrimRight(cfg.DIST_DIR, string(os.PathSeparator))
-	if err := syncDir(srcDir, distDir); err != nil {
+	if err := syncDir(srcDir, distDir, cfg.EXCLUDED_EXT); err != nil {
 		fmt.Fprintf(os.Stderr, "syncDir error: %v\n", err)
 		os.Exit(1)
 	}

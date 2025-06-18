@@ -1,4 +1,5 @@
 {
   "SRC_DIR": "path/to/src",
-  "DIST_DIR": "path/to/dist"
+  "DIST_DIR": "path/to/dist",
+  "EXCLUDED_EXT": [".txt"]
 }
